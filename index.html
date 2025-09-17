@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>World Map Client</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="world-canvas" aria-label="World map"></canvas>
+
+    <script>
+      (function () {
+        const canvas = document.getElementById("world-canvas");
+        const ctx = canvas.getContext("2d", { alpha: false });
+
+        // Choose map image: ?map=URL or fallback paths
+        const params = new URLSearchParams(window.location.search);
+        const provided = params.get("map");
+        const candidateSources = provided
+          ? [provided]
+          : [
+              "assets/world.jpg",
+              "assets/world-map.jpg",
+              "assets/map.jpg",
+              "world.jpg",
+              "public/assets/world.jpg",
+            ];
+
+        let worldImage = null;
+
+        function getDevicePixelRatio() {
+          return Math.max(1, Math.floor(window.devicePixelRatio || 1));
+        }
+
+        function setCanvasSizeToViewport() {
+          const cssWidth = window.innerWidth;
+          const cssHeight = window.innerHeight;
+          const dpr = getDevicePixelRatio();
+
+          // CSS size to fill the window
+          canvas.style.width = cssWidth + "px";
+          canvas.style.height = cssHeight + "px";
+
+          // Backing store size to match device pixels (crisp, no scaling)
+          const targetWidth = Math.floor(cssWidth * dpr);
+          const targetHeight = Math.floor(cssHeight * dpr);
+          if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+          }
+        }
+
+        function drawTopLeft() {
+          if (!worldImage || !worldImage.complete) return;
+
+          // Draw the top-left of the map at 1:1 (no scaling)
+          const sw = Math.min(
+            canvas.width,
+            worldImage.naturalWidth || worldImage.width
+          );
+          const sh = Math.min(
+            canvas.height,
+            worldImage.naturalHeight || worldImage.height
+          );
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(worldImage, 0, 0, sw, sh, 0, 0, sw, sh);
+        }
+
+        function resizeAndRender() {
+          setCanvasSizeToViewport();
+          drawTopLeft();
+        }
+
+        function tryLoadNext(sources) {
+          if (sources.length === 0) {
+            console.warn(
+              "No world map image found. Provide ?map=URL or place one at assets/world.png"
+            );
+            drawTopLeft();
+            return;
+          }
+          const src = sources.shift();
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = function () {
+            worldImage = img;
+            resizeAndRender();
+          };
+          img.onerror = function () {
+            tryLoadNext(sources);
+          };
+          img.src = src;
+        }
+
+        window.addEventListener("resize", resizeAndRender);
+        window.addEventListener("orientationchange", resizeAndRender);
+
+        setCanvasSizeToViewport();
+        tryLoadNext(candidateSources.slice());
+      })();
+    </script>
+  </body>
+</html>
