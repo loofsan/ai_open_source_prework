@@ -1,17 +1,17 @@
 // Minimal client bootstrapping: canvas sizing, map loading, render tick.
 
 const params = new URLSearchParams(window.location.search);
-const serverUrl = params.get('server') || 'ws://localhost:8080';
-const mapParam = params.get('map');
+const serverUrl = params.get("server") || "ws://localhost:8080";
+const mapParam = params.get("map");
 
 /** @type {HTMLCanvasElement} */
-const canvas = document.getElementById('world-canvas');
+const canvas = document.getElementById("world-canvas");
 /** @type {CanvasRenderingContext2D} */
-const ctx = canvas.getContext('2d', { alpha: false });
+const ctx = canvas.getContext("2d", { alpha: false });
 ctx.imageSmoothingEnabled = false;
 
 function getDevicePixelRatio() {
-  const override = Number(params.get('dpr'));
+  const override = Number(params.get("dpr"));
   if (!Number.isNaN(override) && override > 0) return override;
   return Math.max(1, window.devicePixelRatio || 1);
 }
@@ -21,8 +21,8 @@ function setCanvasSizeToViewport() {
   const cssHeight = window.innerHeight;
   const dpr = getDevicePixelRatio();
 
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
+  canvas.style.width = cssWidth + "px";
+  canvas.style.height = cssHeight + "px";
 
   const targetWidth = Math.floor(cssWidth * dpr);
   const targetHeight = Math.floor(cssHeight * dpr);
@@ -46,7 +46,7 @@ const world = {
 
 const selfPlayer = {
   id: null,
-  name: 'Lynn',
+  name: "Lynn",
   x: 0,
   y: 0,
   avatarImage: null,
@@ -61,11 +61,11 @@ const imageCache = new Map();
 
 async function loadImage(urlOrBlob) {
   if (urlOrBlob == null) return null;
-  if (typeof urlOrBlob === 'string') {
+  if (typeof urlOrBlob === "string") {
     if (imageCache.has(urlOrBlob)) return imageCache.get(urlOrBlob);
     const img = new Image();
-    img.decoding = 'async';
-    img.crossOrigin = 'anonymous';
+    img.decoding = "async";
+    img.crossOrigin = "anonymous";
     const p = new Promise((resolve, reject) => {
       img.onload = () => resolve(img);
       img.onerror = reject;
@@ -85,11 +85,11 @@ async function loadMap() {
   const candidates = mapParam
     ? [mapParam]
     : [
-        'assets/world.png',
-        'assets/world-map.png',
-        'assets/map.png',
-        'world.png',
-        'public/assets/world.png',
+        "assets/world.jpg",
+        "assets/world-map.jpg",
+        "assets/map.jpg",
+        "world.jpg",
+        "public/assets/world.jpg",
       ];
   for (const src of candidates) {
     try {
@@ -102,7 +102,9 @@ async function loadMap() {
       }
     } catch (_) {}
   }
-  console.warn('No world map image found. Provide ?map=URL or place one at assets/world.png');
+  console.warn(
+    "No world map image found. Provide ?map=URL or place one at assets/world.png"
+  );
   return false;
 }
 
@@ -113,15 +115,15 @@ function connectAndJoin() {
     try {
       socket = new WebSocket(serverUrl);
     } catch (e) {
-      console.warn('WebSocket unavailable or URL invalid:', e);
+      console.warn("WebSocket unavailable or URL invalid:", e);
       resolve(false);
       return;
     }
 
-    socket.binaryType = 'arraybuffer';
+    socket.binaryType = "arraybuffer";
     socket.onopen = () => {
       const joinMsg = {
-        type: 'join',
+        type: "join",
         name: selfPlayer.name,
       };
       socket.send(JSON.stringify(joinMsg));
@@ -130,9 +132,9 @@ function connectAndJoin() {
     socket.onmessage = async (ev) => {
       try {
         // Assuming JSON welcome for this milestone
-        const msg = typeof ev.data === 'string' ? JSON.parse(ev.data) : null;
+        const msg = typeof ev.data === "string" ? JSON.parse(ev.data) : null;
         if (!msg) return;
-        if (msg.type === 'welcome' || msg.type === 'join-ack') {
+        if (msg.type === "welcome" || msg.type === "join-ack") {
           selfPlayer.id = msg.playerId;
           selfPlayer.x = msg.spawn?.x ?? 0;
           selfPlayer.y = msg.spawn?.y ?? 0;
@@ -145,17 +147,25 @@ function connectAndJoin() {
             selfPlayer.avatarWidth = msg.avatar.width;
             selfPlayer.avatarHeight = msg.avatar.height;
           } else if (selfPlayer.avatarImage) {
-            const w = selfPlayer.avatarImage.naturalWidth || selfPlayer.avatarImage.width;
-            const h = selfPlayer.avatarImage.naturalHeight || selfPlayer.avatarImage.height;
+            const w =
+              selfPlayer.avatarImage.naturalWidth ||
+              selfPlayer.avatarImage.width;
+            const h =
+              selfPlayer.avatarImage.naturalHeight ||
+              selfPlayer.avatarImage.height;
             // Default: scale to max 64 preserving aspect
             const maxSide = 64;
             if (w > 0 && h > 0) {
               if (w >= h) {
                 selfPlayer.avatarWidth = Math.min(maxSide, w);
-                selfPlayer.avatarHeight = Math.round((h / w) * selfPlayer.avatarWidth);
+                selfPlayer.avatarHeight = Math.round(
+                  (h / w) * selfPlayer.avatarWidth
+                );
               } else {
                 selfPlayer.avatarHeight = Math.min(maxSide, h);
-                selfPlayer.avatarWidth = Math.round((w / h) * selfPlayer.avatarHeight);
+                selfPlayer.avatarWidth = Math.round(
+                  (w / h) * selfPlayer.avatarHeight
+                );
               }
             }
           }
@@ -165,7 +175,7 @@ function connectAndJoin() {
           resolve(true);
         }
       } catch (e) {
-        console.warn('Message handling error:', e);
+        console.warn("Message handling error:", e);
       }
     };
 
@@ -184,20 +194,20 @@ function prepareNameLabel() {
   const paddingY = Math.floor(3 * dpr);
   const fontPx = Math.floor(12 * dpr);
 
-  const temp = document.createElement('canvas');
-  const tctx = temp.getContext('2d');
+  const temp = document.createElement("canvas");
+  const tctx = temp.getContext("2d");
   tctx.font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
   const metrics = tctx.measureText(selfPlayer.name);
   const textWidth = Math.ceil(metrics.width);
   const textHeight = Math.ceil(fontPx * 1.4);
   temp.width = textWidth + paddingX * 2;
   temp.height = textHeight + paddingY * 2;
-  const tctx2 = temp.getContext('2d');
+  const tctx2 = temp.getContext("2d");
   tctx2.font = tctx.font;
-  tctx2.textBaseline = 'top';
-  tctx2.fillStyle = 'rgba(0,0,0,0.6)';
+  tctx2.textBaseline = "top";
+  tctx2.fillStyle = "rgba(0,0,0,0.6)";
   tctx2.fillRect(0, 0, temp.width, temp.height);
-  tctx2.fillStyle = '#fff';
+  tctx2.fillStyle = "#fff";
   tctx2.fillText(selfPlayer.name, paddingX, paddingY);
 
   labelCanvas = temp;
@@ -259,7 +269,8 @@ function draw() {
 
   // Draw name label centered above avatar
   if (labelCanvas) {
-    const offsetY = Math.floor((selfPlayer.avatarHeight * dpr) / 2) + Math.floor(8 * dpr);
+    const offsetY =
+      Math.floor((selfPlayer.avatarHeight * dpr) / 2) + Math.floor(8 * dpr);
     const dx = Math.round(screenX - labelWidth / 2);
     const dy = Math.round(screenY - offsetY - labelHeight);
     ctx.drawImage(labelCanvas, dx, dy);
@@ -286,9 +297,8 @@ function loop() {
     prepareNameLabel();
   }
 
-  window.addEventListener('resize', setCanvasSizeToViewport);
-  window.addEventListener('orientationchange', setCanvasSizeToViewport);
+  window.addEventListener("resize", setCanvasSizeToViewport);
+  window.addEventListener("orientationchange", setCanvasSizeToViewport);
 
   loop();
 })();
-
