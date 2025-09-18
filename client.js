@@ -56,6 +56,7 @@ const selfPlayer = {
   facing: "south",
   animationFrame: 0,
   isMoving: false,
+  animTime: 0,
   // Fallback single-image avatar (offline)
   avatarImage: null,
   avatarWidth: 64,
@@ -77,6 +78,10 @@ function ensureOtherPlayer(id) {
       name: "Player",
       x: 0,
       y: 0,
+      facing: 'south',
+      animationFrame: 0,
+      isMoving: false,
+      animTime: 0,
       avatarImage: null,
       avatarWidth: 48,
       avatarHeight: 48,
@@ -299,9 +304,37 @@ function connectAndJoin() {
             }
           }
           prepareNameLabel();
-          if (!settled) {
-            settled = true;
-            resolve(true);
+          if (!settled) { settled = true; resolve(true); }
+        } else if (msg.action === 'player_joined') {
+          if (msg.avatar && msg.avatar.name && msg.avatar.frames) {
+            await loadAvatarAtlas({ [msg.avatar.name]: msg.avatar });
+          }
+          if (msg.player) {
+            await upsertOtherPlayerFromServer(msg.player);
+          }
+        } else if (msg.action === 'players_moved') {
+          if (msg.players && typeof msg.players === 'object') {
+            for (const [pid, p] of Object.entries(msg.players)) {
+              if (!p) continue;
+              if (pid === selfPlayer.id) {
+                if (typeof p.x === 'number') selfPlayer.x = p.x;
+                if (typeof p.y === 'number') selfPlayer.y = p.y;
+                if (typeof p.animationFrame === 'number') selfPlayer.animationFrame = p.animationFrame;
+                if (typeof p.facing === 'string') selfPlayer.facing = p.facing;
+                if (typeof p.isMoving === 'boolean') selfPlayer.isMoving = p.isMoving;
+              } else {
+                const op = ensureOtherPlayer(pid);
+                if (typeof p.x === 'number') op.x = p.x;
+                if (typeof p.y === 'number') op.y = p.y;
+                if (typeof p.animationFrame === 'number') op.animationFrame = p.animationFrame;
+                if (typeof p.facing === 'string') op.facing = p.facing;
+                if (typeof p.isMoving === 'boolean') op.isMoving = p.isMoving;
+                if (typeof p.username === 'string' && p.username !== op.name) {
+                  op.name = p.username;
+                  prepareLabelForPlayer(op);
+                }
+              }
+            }
           }
         }
       } catch (e) {
@@ -397,6 +430,24 @@ function integrateMovement() {
   if (pressedKeys.has("ArrowRight")) dx += 1;
   if (pressedKeys.has("ArrowUp")) dy -= 1;
   if (pressedKeys.has("ArrowDown")) dy += 1;
+
+  // Update facing and walking animation locally
+  if (dx !== 0 || dy !== 0) {
+    selfPlayer.isMoving = true;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      selfPlayer.facing = dx > 0 ? 'east' : 'west';
+    } else if (Math.abs(dy) > 0) {
+      selfPlayer.facing = dy > 0 ? 'south' : 'north';
+    }
+    // Advance animation at ~8 FPS while moving
+    selfPlayer.animTime = (selfPlayer.animTime || 0) + dt;
+    const fps = 8;
+    const frame = Math.floor(selfPlayer.animTime * fps) % 3; // 0..2
+    selfPlayer.animationFrame = frame;
+  } else {
+    selfPlayer.isMoving = false;
+    selfPlayer.animTime = 0;
+  }
 
   if (dx === 0 && dy === 0) return;
 
