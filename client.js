@@ -1,8 +1,9 @@
 // Minimal client bootstrapping: canvas sizing, map loading, render tick.
 
 const params = new URLSearchParams(window.location.search);
-const serverUrl = params.get("server") || "ws://localhost:8080";
+const serverUrl = params.get("server") || "";
 const mapParam = params.get("map");
+const avatarParam = params.get("avatar");
 
 /** @type {HTMLCanvasElement} */
 const canvas = document.getElementById("world-canvas");
@@ -112,6 +113,11 @@ async function loadMap() {
 let socket = null;
 function connectAndJoin() {
   return new Promise((resolve) => {
+    if (!serverUrl) {
+      // No server specified; skip connecting for local/offline preview
+      resolve(false);
+      return;
+    }
     try {
       socket = new WebSocket(serverUrl);
     } catch (e) {
@@ -121,6 +127,7 @@ function connectAndJoin() {
     }
 
     socket.binaryType = "arraybuffer";
+    let settled = false;
     socket.onopen = () => {
       const joinMsg = {
         type: "join",
@@ -172,15 +179,31 @@ function connectAndJoin() {
 
           // After we have self info, pre-render label and start loop
           prepareNameLabel();
-          resolve(true);
+          if (!settled) {
+            settled = true;
+            resolve(true);
+          }
         }
       } catch (e) {
         console.warn("Message handling error:", e);
       }
     };
 
-    socket.onerror = () => resolve(false);
-    socket.onclose = () => {};
+    socket.onerror = () => {
+      if (!settled) {
+        settled = true;
+        console.warn(
+          "WebSocket connection failed. Provide ?server=ws://host:port to override."
+        );
+        resolve(false);
+      }
+    };
+    socket.onclose = () => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    };
   });
 }
 
@@ -256,8 +279,9 @@ function draw() {
 
   // Draw avatar centered on self position
   if (selfPlayer.avatarImage) {
-    const aw = Math.floor(selfPlayer.avatarWidth * dpr);
-    const ah = Math.floor(selfPlayer.avatarHeight * dpr);
+    // Avatar size is in world pixels; no DPR multiplier here
+    const aw = Math.floor(selfPlayer.avatarWidth);
+    const ah = Math.floor(selfPlayer.avatarHeight);
     ctx.drawImage(
       selfPlayer.avatarImage,
       Math.round(screenX - aw / 2),
@@ -270,7 +294,7 @@ function draw() {
   // Draw name label centered above avatar
   if (labelCanvas) {
     const offsetY =
-      Math.floor((selfPlayer.avatarHeight * dpr) / 2) + Math.floor(8 * dpr);
+      Math.floor(selfPlayer.avatarHeight / 2) + Math.floor(8 * dpr);
     const dx = Math.round(screenX - labelWidth / 2);
     const dy = Math.round(screenY - offsetY - labelHeight);
     ctx.drawImage(labelCanvas, dx, dy);
@@ -294,11 +318,74 @@ function loop() {
       selfPlayer.x = Math.floor(world.width / 2);
       selfPlayer.y = Math.floor(world.height / 2);
     }
-    prepareNameLabel();
   }
+
+  // Ensure we have some avatar even if server didn't provide one
+  if (!selfPlayer.avatarImage) {
+    try {
+      if (avatarParam) {
+        selfPlayer.avatarImage = await loadImage(avatarParam);
+        // Infer default size preserving aspect, max 64px if not specified by server
+        const w =
+          selfPlayer.avatarImage.naturalWidth ||
+          selfPlayer.avatarImage.width ||
+          64;
+        const h =
+          selfPlayer.avatarImage.naturalHeight ||
+          selfPlayer.avatarImage.height ||
+          64;
+        const maxSide = 64;
+        if (w >= h) {
+          selfPlayer.avatarWidth = Math.min(maxSide, w);
+          selfPlayer.avatarHeight = Math.round(
+            (h / w) * selfPlayer.avatarWidth
+          );
+        } else {
+          selfPlayer.avatarHeight = Math.min(maxSide, h);
+          selfPlayer.avatarWidth = Math.round(
+            (w / h) * selfPlayer.avatarHeight
+          );
+        }
+      } else {
+        // Build a simple placeholder avatar
+        const size = 64;
+        const off = document.createElement("canvas");
+        off.width = size;
+        off.height = size;
+        const octx = off.getContext("2d");
+        octx.fillStyle = "#2d6cdf";
+        octx.beginPath();
+        octx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        octx.fill();
+        octx.fillStyle = "#fff";
+        octx.font =
+          "bold 32px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+        octx.textAlign = "center";
+        octx.textBaseline = "middle";
+        octx.fillText(
+          selfPlayer.name.slice(0, 1).toUpperCase(),
+          size / 2,
+          size / 2 + 1
+        );
+        selfPlayer.avatarImage = off;
+        selfPlayer.avatarWidth = size;
+        selfPlayer.avatarHeight = size;
+      }
+    } catch (e) {
+      console.warn(
+        "Failed to load avatar from ?avatar=, using placeholder.",
+        e
+      );
+    }
+  }
+
+  // Prepare label (depends on DPR); also refresh on resize for crispness
+  prepareNameLabel();
 
   window.addEventListener("resize", setCanvasSizeToViewport);
   window.addEventListener("orientationchange", setCanvasSizeToViewport);
+  window.addEventListener("resize", () => prepareNameLabel());
+  window.addEventListener("orientationchange", () => prepareNameLabel());
 
   loop();
 })();
