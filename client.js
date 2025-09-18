@@ -274,7 +274,7 @@ function connectAndJoin() {
                 selfPlayer.isMoving = !!p.isMoving;
                 selfPlayer.animationFrame = p.animationFrame || 0;
               } else {
-                await upsertPlayerFromRoster(p);
+                await upsertOtherPlayerFromServer(p);
               }
             }
           }
