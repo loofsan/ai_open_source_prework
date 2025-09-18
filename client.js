@@ -78,7 +78,7 @@ function ensureOtherPlayer(id) {
       name: "Player",
       x: 0,
       y: 0,
-      facing: 'south',
+      facing: "south",
       animationFrame: 0,
       isMoving: false,
       animTime: 0,
@@ -128,7 +128,8 @@ function prepareLabelForPlayer(player) {
 }
 
 async function upsertOtherPlayerFromServer(p) {
-  const op = ensureOtherPlayer(p.playerId);
+  const pid = p.playerId || p.id;
+  const op = ensureOtherPlayer(pid);
   if (typeof p.x === "number") op.x = p.x;
   if (typeof p.y === "number") op.y = p.y;
   if (typeof p.username === "string") op.name = p.username;
@@ -304,32 +305,38 @@ function connectAndJoin() {
             }
           }
           prepareNameLabel();
-          if (!settled) { settled = true; resolve(true); }
-        } else if (msg.action === 'player_joined') {
+          if (!settled) {
+            settled = true;
+            resolve(true);
+          }
+        } else if (msg.action === "player_joined") {
           if (msg.avatar && msg.avatar.name && msg.avatar.frames) {
             await loadAvatarAtlas({ [msg.avatar.name]: msg.avatar });
           }
           if (msg.player) {
             await upsertOtherPlayerFromServer(msg.player);
           }
-        } else if (msg.action === 'players_moved') {
-          if (msg.players && typeof msg.players === 'object') {
+        } else if (msg.action === "players_moved") {
+          if (msg.players && typeof msg.players === "object") {
             for (const [pid, p] of Object.entries(msg.players)) {
               if (!p) continue;
               if (pid === selfPlayer.id) {
-                if (typeof p.x === 'number') selfPlayer.x = p.x;
-                if (typeof p.y === 'number') selfPlayer.y = p.y;
-                if (typeof p.animationFrame === 'number') selfPlayer.animationFrame = p.animationFrame;
-                if (typeof p.facing === 'string') selfPlayer.facing = p.facing;
-                if (typeof p.isMoving === 'boolean') selfPlayer.isMoving = p.isMoving;
+                if (typeof p.x === "number") selfPlayer.x = p.x;
+                if (typeof p.y === "number") selfPlayer.y = p.y;
+                if (typeof p.animationFrame === "number")
+                  selfPlayer.animationFrame = p.animationFrame;
+                if (typeof p.facing === "string") selfPlayer.facing = p.facing;
+                if (typeof p.isMoving === "boolean")
+                  selfPlayer.isMoving = p.isMoving;
               } else {
                 const op = ensureOtherPlayer(pid);
-                if (typeof p.x === 'number') op.x = p.x;
-                if (typeof p.y === 'number') op.y = p.y;
-                if (typeof p.animationFrame === 'number') op.animationFrame = p.animationFrame;
-                if (typeof p.facing === 'string') op.facing = p.facing;
-                if (typeof p.isMoving === 'boolean') op.isMoving = p.isMoving;
-                if (typeof p.username === 'string' && p.username !== op.name) {
+                if (typeof p.x === "number") op.x = p.x;
+                if (typeof p.y === "number") op.y = p.y;
+                if (typeof p.animationFrame === "number")
+                  op.animationFrame = p.animationFrame;
+                if (typeof p.facing === "string") op.facing = p.facing;
+                if (typeof p.isMoving === "boolean") op.isMoving = p.isMoving;
+                if (typeof p.username === "string" && p.username !== op.name) {
                   op.name = p.username;
                   prepareLabelForPlayer(op);
                 }
@@ -435,9 +442,9 @@ function integrateMovement() {
   if (dx !== 0 || dy !== 0) {
     selfPlayer.isMoving = true;
     if (Math.abs(dx) > Math.abs(dy)) {
-      selfPlayer.facing = dx > 0 ? 'east' : 'west';
+      selfPlayer.facing = dx > 0 ? "east" : "west";
     } else if (Math.abs(dy) > 0) {
-      selfPlayer.facing = dy > 0 ? 'south' : 'north';
+      selfPlayer.facing = dy > 0 ? "south" : "north";
     }
     // Advance animation at ~8 FPS while moving
     selfPlayer.animTime = (selfPlayer.animTime || 0) + dt;
