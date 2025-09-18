@@ -148,9 +148,13 @@ function handleKeyDown(e) {
   const key = e.key;
   if (
     key === "ArrowUp" ||
+    key === "w" ||
     key === "ArrowDown" ||
+    key === "s" ||
     key === "ArrowLeft" ||
-    key === "ArrowRight"
+    key === "a" ||
+    key === "ArrowRight" ||
+    key === "d"
   ) {
     e.preventDefault();
     pressedKeys.add(key);
@@ -164,9 +168,13 @@ function handleKeyUp(e) {
   const key = e.key;
   if (
     key === "ArrowUp" ||
+    key === "w" ||
     key === "ArrowDown" ||
+    key === "s" ||
     key === "ArrowLeft" ||
-    key === "ArrowRight"
+    key === "a" ||
+    key === "ArrowRight" ||
+    key === "d"
   ) {
     e.preventDefault();
     pressedKeys.delete(key);
@@ -184,12 +192,16 @@ function handleKeyUp(e) {
 function directionFromKey(key) {
   switch (key) {
     case "ArrowUp":
+    case "w":
       return { dx: 0, dy: -1 };
     case "ArrowDown":
+    case "s":
       return { dx: 0, dy: 1 };
     case "ArrowLeft":
+    case "a":
       return { dx: -1, dy: 0 };
     case "ArrowRight":
+    case "d":
       return { dx: 1, dy: 0 };
     default:
       return { dx: 0, dy: 0 };
@@ -433,10 +445,10 @@ function integrateMovement() {
   // Build direction from pressed keys
   let dx = 0;
   let dy = 0;
-  if (pressedKeys.has("ArrowLeft")) dx -= 1;
-  if (pressedKeys.has("ArrowRight")) dx += 1;
-  if (pressedKeys.has("ArrowUp")) dy -= 1;
-  if (pressedKeys.has("ArrowDown")) dy += 1;
+  if (pressedKeys.has("ArrowLeft") || pressedKeys.has("a")) dx -= 1;
+  if (pressedKeys.has("ArrowRight") || pressedKeys.has("d")) dx += 1;
+  if (pressedKeys.has("ArrowUp") || pressedKeys.has("w")) dy -= 1;
+  if (pressedKeys.has("ArrowDown") || pressedKeys.has("s")) dy += 1;
 
   // Update facing and walking animation locally
   if (dx !== 0 || dy !== 0) {
