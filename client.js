@@ -4,6 +4,7 @@ const params = new URLSearchParams(window.location.search);
 const serverUrl = params.get('server') || '';
 const mapParam = params.get('map');
 const avatarParam = params.get('avatar');
+const speedParam = Number(params.get('speed'));
 
 /** @type {HTMLCanvasElement} */
 const canvas = document.getElementById('world-canvas');
@@ -59,6 +60,38 @@ const camera = { x: 0, y: 0 };
 
 // Assets cache by URL
 const imageCache = new Map();
+
+// Input state
+const pressedKeys = new Set();
+
+function handleKeyDown(e) {
+  const key = e.key;
+  if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+    e.preventDefault();
+    pressedKeys.add(key);
+    // Send one move command per keydown event (including repeats)
+    const { dx, dy } = directionFromKey(key);
+    sendMoveCommand(dx, dy);
+  }
+}
+
+function handleKeyUp(e) {
+  const key = e.key;
+  if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+    e.preventDefault();
+    pressedKeys.delete(key);
+  }
+}
+
+function directionFromKey(key) {
+  switch (key) {
+    case 'ArrowUp': return { dx: 0, dy: -1 };
+    case 'ArrowDown': return { dx: 0, dy: 1 };
+    case 'ArrowLeft': return { dx: -1, dy: 0 };
+    case 'ArrowRight': return { dx: 1, dy: 0 };
+    default: return { dx: 0, dy: 0 };
+  }
+}
 
 async function loadImage(urlOrBlob) {
   if (urlOrBlob == null) return null;
@@ -181,6 +214,14 @@ function connectAndJoin() {
   });
 }
 
+function sendMoveCommand(dx, dy) {
+  if (!socket || socket.readyState !== 1 /* OPEN */) return;
+  try {
+    const msg = { type: 'move', dx, dy, at: Date.now() };
+    socket.send(JSON.stringify(msg));
+  } catch (_) {}
+}
+
 // Pre-rendered label for efficiency
 let labelCanvas = null;
 let labelWidth = 0;
@@ -227,6 +268,40 @@ function updateCamera() {
   camera.y = clamp(desiredY, 0, maxY);
 }
 
+let lastTs = performance.now();
+const moveSpeed = Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 200; // world px/sec
+
+function integrateMovement() {
+  const now = performance.now();
+  const dt = Math.min(0.05, Math.max(0, (now - lastTs) / 1000)); // clamp dt to 50ms
+  lastTs = now;
+
+  // Build direction from pressed keys
+  let dx = 0;
+  let dy = 0;
+  if (pressedKeys.has('ArrowLeft')) dx -= 1;
+  if (pressedKeys.has('ArrowRight')) dx += 1;
+  if (pressedKeys.has('ArrowUp')) dy -= 1;
+  if (pressedKeys.has('ArrowDown')) dy += 1;
+
+  if (dx === 0 && dy === 0) return;
+
+  // Normalize diagonal speed
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len;
+  dy /= len;
+
+  const dist = moveSpeed * dt;
+  selfPlayer.x += dx * dist;
+  selfPlayer.y += dy * dist;
+
+  // Clamp to world bounds
+  const maxX = Math.max(0, world.width);
+  const maxY = Math.max(0, world.height);
+  selfPlayer.x = clamp(selfPlayer.x, 0, maxX);
+  selfPlayer.y = clamp(selfPlayer.y, 0, maxY);
+}
+
 function draw() {
   setCanvasSizeToViewport();
   updateCamera();
@@ -234,6 +309,9 @@ function draw() {
   const dpr = getDevicePixelRatio();
   const viewW = canvas.width; // already in device pixels
   const viewH = canvas.height;
+
+  // Continuous local movement
+  integrateMovement();
 
   // Draw world map subsection aligned to camera
   if (world.image) {
@@ -341,6 +419,9 @@ function loop() {
   window.addEventListener('orientationchange', setCanvasSizeToViewport);
   window.addEventListener('resize', () => prepareNameLabel());
   window.addEventListener('orientationchange', () => prepareNameLabel());
+  window.addEventListener('keydown', handleKeyDown, { passive: false });
+  window.addEventListener('keyup', handleKeyUp, { passive: false });
+  window.addEventListener('blur', () => pressedKeys.clear());
 
   loop();
 })();
