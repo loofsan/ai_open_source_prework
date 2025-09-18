@@ -1,19 +1,19 @@
 // Minimal client bootstrapping: canvas sizing, map loading, render tick.
 
 const params = new URLSearchParams(window.location.search);
-const serverUrl = params.get('server') || 'wss://codepath-mmorg.onrender.com';
-const mapParam = params.get('map');
-const avatarParam = params.get('avatar');
-const speedParam = Number(params.get('speed'));
+const serverUrl = "wss://codepath-mmorg.onrender.com";
+const mapParam = params.get("map");
+const avatarParam = params.get("avatar");
+const speedParam = Number(params.get("speed"));
 
 /** @type {HTMLCanvasElement} */
-const canvas = document.getElementById('world-canvas');
+const canvas = document.getElementById("world-canvas");
 /** @type {CanvasRenderingContext2D} */
-const ctx = canvas.getContext('2d', { alpha: false });
+const ctx = canvas.getContext("2d", { alpha: false });
 ctx.imageSmoothingEnabled = false;
 
 function getDevicePixelRatio() {
-  const override = Number(params.get('dpr'));
+  const override = Number(params.get("dpr"));
   if (!Number.isNaN(override) && override > 0) return override;
   return Math.max(1, window.devicePixelRatio || 1);
 }
@@ -23,8 +23,8 @@ function setCanvasSizeToViewport() {
   const cssHeight = window.innerHeight;
   const dpr = getDevicePixelRatio();
 
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
+  canvas.style.width = cssWidth + "px";
+  canvas.style.height = cssHeight + "px";
 
   const targetWidth = Math.floor(cssWidth * dpr);
   const targetHeight = Math.floor(cssHeight * dpr);
@@ -48,12 +48,12 @@ const world = {
 
 const selfPlayer = {
   id: null,
-  name: 'Lynn',
+  name: "Lynn",
   x: 0,
   y: 0,
   // Avatar rendering (server-driven)
   avatarName: null,
-  facing: 'south',
+  facing: "south",
   animationFrame: 0,
   isMoving: false,
   animTime: 0,
@@ -75,7 +75,7 @@ function ensureOtherPlayer(id) {
   if (!players.has(id)) {
     players.set(id, {
       id,
-      name: 'Player',
+      name: "Player",
       x: 0,
       y: 0,
       facing: 'south',
@@ -95,9 +95,9 @@ function ensureOtherPlayer(id) {
 
 async function setPlayerAvatarFromDescriptor(player, avatarDesc) {
   // For new protocol, avatarDesc is a name: we only assign name; actual frames are in avatarAtlas
-  if (typeof avatarDesc === 'string') {
+  if (typeof avatarDesc === "string") {
     player.avatarName = avatarDesc;
-  } else if (avatarDesc && typeof avatarDesc.name === 'string') {
+  } else if (avatarDesc && typeof avatarDesc.name === "string") {
     player.avatarName = avatarDesc.name;
   }
 }
@@ -107,21 +107,21 @@ function prepareLabelForPlayer(player) {
   const paddingX = Math.floor(6 * dpr);
   const paddingY = Math.floor(3 * dpr);
   const fontPx = Math.floor(12 * dpr);
-  const temp = document.createElement('canvas');
-  const tctx = temp.getContext('2d');
+  const temp = document.createElement("canvas");
+  const tctx = temp.getContext("2d");
   tctx.font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
-  const metrics = tctx.measureText(player.name || 'Player');
+  const metrics = tctx.measureText(player.name || "Player");
   const textWidth = Math.ceil(metrics.width);
   const textHeight = Math.ceil(fontPx * 1.4);
   temp.width = textWidth + paddingX * 2;
   temp.height = textHeight + paddingY * 2;
-  const tctx2 = temp.getContext('2d');
+  const tctx2 = temp.getContext("2d");
   tctx2.font = tctx.font;
-  tctx2.textBaseline = 'top';
-  tctx2.fillStyle = 'rgba(0,0,0,0.6)';
+  tctx2.textBaseline = "top";
+  tctx2.fillStyle = "rgba(0,0,0,0.6)";
   tctx2.fillRect(0, 0, temp.width, temp.height);
-  tctx2.fillStyle = '#fff';
-  tctx2.fillText(player.name || 'Player', paddingX, paddingY);
+  tctx2.fillStyle = "#fff";
+  tctx2.fillText(player.name || "Player", paddingX, paddingY);
   player.labelCanvas = temp;
   player.labelWidth = temp.width;
   player.labelHeight = temp.height;
@@ -129,13 +129,14 @@ function prepareLabelForPlayer(player) {
 
 async function upsertOtherPlayerFromServer(p) {
   const op = ensureOtherPlayer(p.playerId);
-  if (typeof p.x === 'number') op.x = p.x;
-  if (typeof p.y === 'number') op.y = p.y;
-  if (typeof p.username === 'string') op.name = p.username;
+  if (typeof p.x === "number") op.x = p.x;
+  if (typeof p.y === "number") op.y = p.y;
+  if (typeof p.username === "string") op.name = p.username;
   if (p.avatar) await setPlayerAvatarFromDescriptor(op, p.avatar);
-  if (typeof p.facing === 'string') op.facing = p.facing;
-  if (typeof p.animationFrame === 'number') op.animationFrame = p.animationFrame;
-  if (typeof p.isMoving === 'boolean') op.isMoving = p.isMoving;
+  if (typeof p.facing === "string") op.facing = p.facing;
+  if (typeof p.animationFrame === "number")
+    op.animationFrame = p.animationFrame;
+  if (typeof p.isMoving === "boolean") op.isMoving = p.isMoving;
   prepareLabelForPlayer(op);
 }
 
@@ -144,7 +145,12 @@ const pressedKeys = new Set();
 
 function handleKeyDown(e) {
   const key = e.key;
-  if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+  if (
+    key === "ArrowUp" ||
+    key === "ArrowDown" ||
+    key === "ArrowLeft" ||
+    key === "ArrowRight"
+  ) {
     e.preventDefault();
     pressedKeys.add(key);
     // Send one move command per keydown event (including repeats)
@@ -155,14 +161,19 @@ function handleKeyDown(e) {
 
 function handleKeyUp(e) {
   const key = e.key;
-  if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+  if (
+    key === "ArrowUp" ||
+    key === "ArrowDown" ||
+    key === "ArrowLeft" ||
+    key === "ArrowRight"
+  ) {
     e.preventDefault();
     pressedKeys.delete(key);
     if (pressedKeys.size === 0) {
       // Send stop when last key released
       try {
         if (socket && socket.readyState === 1) {
-          socket.send(JSON.stringify({ action: 'stop' }));
+          socket.send(JSON.stringify({ action: "stop" }));
         }
       } catch (_) {}
     }
@@ -171,21 +182,26 @@ function handleKeyUp(e) {
 
 function directionFromKey(key) {
   switch (key) {
-    case 'ArrowUp': return { dx: 0, dy: -1 };
-    case 'ArrowDown': return { dx: 0, dy: 1 };
-    case 'ArrowLeft': return { dx: -1, dy: 0 };
-    case 'ArrowRight': return { dx: 1, dy: 0 };
-    default: return { dx: 0, dy: 0 };
+    case "ArrowUp":
+      return { dx: 0, dy: -1 };
+    case "ArrowDown":
+      return { dx: 0, dy: 1 };
+    case "ArrowLeft":
+      return { dx: -1, dy: 0 };
+    case "ArrowRight":
+      return { dx: 1, dy: 0 };
+    default:
+      return { dx: 0, dy: 0 };
   }
 }
 
 async function loadImage(urlOrBlob) {
   if (urlOrBlob == null) return null;
-  if (typeof urlOrBlob === 'string') {
+  if (typeof urlOrBlob === "string") {
     if (imageCache.has(urlOrBlob)) return imageCache.get(urlOrBlob);
     const img = new Image();
-    img.decoding = 'async';
-    img.crossOrigin = 'anonymous';
+    img.decoding = "async";
+    img.crossOrigin = "anonymous";
     const p = new Promise((resolve, reject) => {
       img.onload = () => resolve(img);
       img.onerror = reject;
@@ -205,11 +221,11 @@ async function loadMap() {
   const candidates = mapParam
     ? [mapParam]
     : [
-        'assets/world.png',
-        'assets/world-map.png',
-        'assets/map.png',
-        'world.png',
-        'public/assets/world.png',
+        "assets/world.jpg",
+        "assets/world-map.jpg",
+        "assets/map.jpg",
+        "world.jpg",
+        "public/assets/world.jpg",
       ];
   for (const src of candidates) {
     try {
@@ -222,7 +238,9 @@ async function loadMap() {
       }
     } catch (_) {}
   }
-  console.warn('No world map image found. Provide ?map=URL or place one at assets/world.png');
+  console.warn(
+    "No world map image found. Provide ?map=URL or place one at assets/world.png"
+  );
   return false;
 }
 
@@ -234,40 +252,42 @@ function connectAndJoin() {
     try {
       socket = new WebSocket(serverUrl);
     } catch (e) {
-      console.warn('WebSocket unavailable or URL invalid:', e);
+      console.warn("WebSocket unavailable or URL invalid:", e);
       resolve(false);
       return;
     }
 
-    socket.binaryType = 'arraybuffer';
+    socket.binaryType = "arraybuffer";
     let settled = false;
     socket.onopen = () => {
       const joinMsg = {
-        action: 'join_game',
+        action: "join_game",
         username: selfPlayer.name,
-        // Optional avatar upload omitted for now
       };
       socket.send(JSON.stringify(joinMsg));
     };
 
     socket.onmessage = async (ev) => {
       try {
-        const msg = typeof ev.data === 'string' ? JSON.parse(ev.data) : null;
+        const msg = typeof ev.data === "string" ? JSON.parse(ev.data) : null;
         if (!msg) return;
-        if (msg.action === 'join_game') {
+        if (msg.action === "join_game") {
           if (msg.success === false) {
-            console.warn('join_game failed:', msg.error);
-            if (!settled) { settled = true; resolve(false); }
+            console.warn("join_game failed:", msg.error);
+            if (!settled) {
+              settled = true;
+              resolve(false);
+            }
             return;
           }
           // Load avatar atlas from server response
-          if (msg.avatars && typeof msg.avatars === 'object') {
+          if (msg.avatars && typeof msg.avatars === "object") {
             await loadAvatarAtlas(msg.avatars);
           }
           // Set self id
           selfPlayer.id = msg.playerId;
           // Populate players (object keyed by id)
-          if (msg.players && typeof msg.players === 'object') {
+          if (msg.players && typeof msg.players === "object") {
             for (const [pid, p] of Object.entries(msg.players)) {
               if (!p) continue;
               if (pid === selfPlayer.id) {
@@ -275,7 +295,7 @@ function connectAndJoin() {
                 selfPlayer.y = p.y || 0;
                 selfPlayer.name = p.username || selfPlayer.name;
                 selfPlayer.avatarName = p.avatar || null;
-                selfPlayer.facing = p.facing || 'south';
+                selfPlayer.facing = p.facing || "south";
                 selfPlayer.isMoving = !!p.isMoving;
                 selfPlayer.animationFrame = p.animationFrame || 0;
               } else {
@@ -316,31 +336,34 @@ function connectAndJoin() {
               }
             }
           }
-        } else if (msg.action === 'player_left') {
-          if (msg.playerId) players.delete(msg.playerId);
-        } else if (typeof msg.action === 'string' && msg.success === false) {
-          console.warn('Server error for action', msg.action, ':', msg.error);
         }
       } catch (e) {
-        console.warn('Message handling error:', e);
+        console.warn("Message handling error:", e);
       }
     };
 
-    socket.onerror = () => { if (!settled) { settled = true; console.warn('WebSocket connection failed. Provide ?server=ws://host:port to override.'); resolve(false); } };
-    socket.onclose = () => { if (!settled) { settled = true; resolve(false); } };
+    socket.onerror = () => {
+      if (!settled) {
+        settled = true;
+        console.warn(
+          "WebSocket connection failed. Provide ?server=ws://host:port to override."
+        );
+        resolve(false);
+      }
+    };
+    socket.onclose = () => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    };
   });
 }
 
 function sendMoveCommand(dx, dy) {
   if (!socket || socket.readyState !== 1 /* OPEN */) return;
   try {
-    let direction = null;
-    if (dx === 0 && dy === -1) direction = 'up';
-    else if (dx === 0 && dy === 1) direction = 'down';
-    else if (dx === -1 && dy === 0) direction = 'left';
-    else if (dx === 1 && dy === 0) direction = 'right';
-    if (!direction) return;
-    const msg = { action: 'move', direction };
+    const msg = { type: "move", dx, dy, at: Date.now() };
     socket.send(JSON.stringify(msg));
   } catch (_) {}
 }
@@ -355,20 +378,20 @@ function prepareNameLabel() {
   const paddingY = Math.floor(3 * dpr);
   const fontPx = Math.floor(12 * dpr);
 
-  const temp = document.createElement('canvas');
-  const tctx = temp.getContext('2d');
+  const temp = document.createElement("canvas");
+  const tctx = temp.getContext("2d");
   tctx.font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
   const metrics = tctx.measureText(selfPlayer.name);
   const textWidth = Math.ceil(metrics.width);
   const textHeight = Math.ceil(fontPx * 1.4);
   temp.width = textWidth + paddingX * 2;
   temp.height = textHeight + paddingY * 2;
-  const tctx2 = temp.getContext('2d');
+  const tctx2 = temp.getContext("2d");
   tctx2.font = tctx.font;
-  tctx2.textBaseline = 'top';
-  tctx2.fillStyle = 'rgba(0,0,0,0.6)';
+  tctx2.textBaseline = "top";
+  tctx2.fillStyle = "rgba(0,0,0,0.6)";
   tctx2.fillRect(0, 0, temp.width, temp.height);
-  tctx2.fillStyle = '#fff';
+  tctx2.fillStyle = "#fff";
   tctx2.fillText(selfPlayer.name, paddingX, paddingY);
 
   labelCanvas = temp;
@@ -392,7 +415,8 @@ function updateCamera() {
 }
 
 let lastTs = performance.now();
-const moveSpeed = Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 200; // world px/sec
+const moveSpeed =
+  Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 200; // world px/sec
 
 function integrateMovement() {
   const now = performance.now();
@@ -402,10 +426,10 @@ function integrateMovement() {
   // Build direction from pressed keys
   let dx = 0;
   let dy = 0;
-  if (pressedKeys.has('ArrowLeft')) dx -= 1;
-  if (pressedKeys.has('ArrowRight')) dx += 1;
-  if (pressedKeys.has('ArrowUp')) dy -= 1;
-  if (pressedKeys.has('ArrowDown')) dy += 1;
+  if (pressedKeys.has("ArrowLeft")) dx -= 1;
+  if (pressedKeys.has("ArrowRight")) dx += 1;
+  if (pressedKeys.has("ArrowUp")) dy -= 1;
+  if (pressedKeys.has("ArrowDown")) dy += 1;
 
   // Update facing and walking animation locally
   if (dx !== 0 || dy !== 0) {
@@ -475,7 +499,8 @@ function draw() {
 
   // Draw name label centered above avatar
   if (labelCanvas) {
-    const offsetY = Math.floor(selfPlayer.avatarHeight / 2) + Math.floor(8 * dpr);
+    const offsetY =
+      Math.floor(selfPlayer.avatarHeight / 2) + Math.floor(8 * dpr);
     const dx = Math.round(screenX - labelWidth / 2);
     const dy = Math.round(screenY - offsetY - labelHeight);
     ctx.drawImage(labelCanvas, dx, dy);
@@ -490,7 +515,12 @@ function draw() {
       const size = getAvatarSize(op);
       const halfW = Math.floor(size.w / 2);
       const halfH = Math.floor(size.h / 2);
-      if (sx + halfW < 0 || sy + halfH < 0 || sx - halfW > viewW || sy - halfH > viewH) {
+      if (
+        sx + halfW < 0 ||
+        sy + halfH < 0 ||
+        sx - halfW > viewW ||
+        sy - halfH > viewH
+      ) {
         continue;
       }
 
@@ -531,55 +561,69 @@ function loop() {
       if (avatarParam) {
         selfPlayer.avatarImage = await loadImage(avatarParam);
         // Infer default size preserving aspect, max 64px if not specified by server
-        const w = selfPlayer.avatarImage.naturalWidth || selfPlayer.avatarImage.width || 64;
-        const h = selfPlayer.avatarImage.naturalHeight || selfPlayer.avatarImage.height || 64;
+        const w =
+          selfPlayer.avatarImage.naturalWidth ||
+          selfPlayer.avatarImage.width ||
+          64;
+        const h =
+          selfPlayer.avatarImage.naturalHeight ||
+          selfPlayer.avatarImage.height ||
+          64;
         const maxSide = 64;
         if (w >= h) {
           selfPlayer.avatarWidth = Math.min(maxSide, w);
-          selfPlayer.avatarHeight = Math.round((h / w) * selfPlayer.avatarWidth);
+          selfPlayer.avatarHeight = Math.round(
+            (h / w) * selfPlayer.avatarWidth
+          );
         } else {
           selfPlayer.avatarHeight = Math.min(maxSide, h);
-          selfPlayer.avatarWidth = Math.round((w / h) * selfPlayer.avatarHeight);
+          selfPlayer.avatarWidth = Math.round(
+            (w / h) * selfPlayer.avatarHeight
+          );
         }
       } else {
         // Build a simple placeholder avatar
         const size = 64;
-        const off = document.createElement('canvas');
+        const off = document.createElement("canvas");
         off.width = size;
         off.height = size;
-        const octx = off.getContext('2d');
-        octx.fillStyle = '#2d6cdf';
+        const octx = off.getContext("2d");
+        octx.fillStyle = "#2d6cdf";
         octx.beginPath();
-        octx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+        octx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
         octx.fill();
-        octx.fillStyle = '#fff';
-        octx.font = 'bold 32px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-        octx.textAlign = 'center';
-        octx.textBaseline = 'middle';
-        octx.fillText(selfPlayer.name.slice(0,1).toUpperCase(), size/2, size/2 + 1);
+        octx.fillStyle = "#fff";
+        octx.font =
+          "bold 32px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+        octx.textAlign = "center";
+        octx.textBaseline = "middle";
+        octx.fillText(
+          selfPlayer.name.slice(0, 1).toUpperCase(),
+          size / 2,
+          size / 2 + 1
+        );
         selfPlayer.avatarImage = off;
         selfPlayer.avatarWidth = size;
         selfPlayer.avatarHeight = size;
       }
     } catch (e) {
-      console.warn('Failed to load avatar from ?avatar=, using placeholder.', e);
+      console.warn(
+        "Failed to load avatar from ?avatar=, using placeholder.",
+        e
+      );
     }
   }
 
   // Prepare label (depends on DPR); also refresh on resize for crispness
   prepareNameLabel();
 
-  window.addEventListener('resize', setCanvasSizeToViewport);
-  window.addEventListener('orientationchange', setCanvasSizeToViewport);
-  window.addEventListener('resize', () => prepareNameLabel());
-  window.addEventListener('orientationchange', () => prepareNameLabel());
-  window.addEventListener('keydown', handleKeyDown, { passive: false });
-  window.addEventListener('keyup', handleKeyUp, { passive: false });
-  window.addEventListener('blur', () => pressedKeys.clear());
-  // Refresh labels for other players on DPR change
-  window.addEventListener('resize', () => { for (const op of players.values()) prepareLabelForPlayer(op); });
-  window.addEventListener('orientationchange', () => { for (const op of players.values()) prepareLabelForPlayer(op); });
-
+  window.addEventListener("resize", setCanvasSizeToViewport);
+  window.addEventListener("orientationchange", setCanvasSizeToViewport);
+  window.addEventListener("resize", () => prepareNameLabel());
+  window.addEventListener("orientationchange", () => prepareNameLabel());
+  window.addEventListener("keydown", handleKeyDown, { passive: false });
+  window.addEventListener("keyup", handleKeyUp, { passive: false });
+  window.addEventListener("blur", () => pressedKeys.clear());
   loop();
 })();
 
@@ -592,10 +636,11 @@ function getAvatarSize(p) {
   }
   // If frames exist, size them by first available frame
   const atlas = avatarAtlas.get(p.avatarName);
-  const frames = atlas?.frames?.south || atlas?.frames?.east || atlas?.frames?.north;
+  const frames =
+    atlas?.frames?.south || atlas?.frames?.east || atlas?.frames?.north;
   const img = frames && frames[0];
-  const w = (img?.naturalWidth || img?.width || 64);
-  const h = (img?.naturalHeight || img?.height || 64);
+  const w = img?.naturalWidth || img?.width || 64;
+  const h = img?.naturalHeight || img?.height || 64;
   return { w, h };
 }
 
@@ -606,15 +651,24 @@ function drawPlayerSprite(p, centerX, centerY) {
 
   if (!p.avatarName || !avatarAtlas.has(p.avatarName)) {
     if (p.avatarImage) {
-      ctx.drawImage(p.avatarImage, Math.round(centerX - halfW), Math.round(centerY - halfH), size.w, size.h);
+      ctx.drawImage(
+        p.avatarImage,
+        Math.round(centerX - halfW),
+        Math.round(centerY - halfH),
+        size.w,
+        size.h
+      );
     }
     return;
   }
 
   const atlas = avatarAtlas.get(p.avatarName);
-  let dir = p.facing || 'south';
+  let dir = p.facing || "south";
   let flip = false;
-  if (dir === 'west') { dir = 'east'; flip = true; }
+  if (dir === "west") {
+    dir = "east";
+    flip = true;
+  }
   const frames = atlas.frames[dir] || [];
   const frameIndex = Math.max(0, Math.min(2, p.animationFrame | 0));
   const frame = frames[frameIndex] || frames[0];
@@ -624,9 +678,21 @@ function drawPlayerSprite(p, centerX, centerY) {
   if (flip) {
     ctx.translate(Math.round(centerX), 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(frame, Math.round(-halfW), Math.round(centerY - halfH), size.w, size.h);
+    ctx.drawImage(
+      frame,
+      Math.round(-halfW),
+      Math.round(centerY - halfH),
+      size.w,
+      size.h
+    );
   } else {
-    ctx.drawImage(frame, Math.round(centerX - halfW), Math.round(centerY - halfH), size.w, size.h);
+    ctx.drawImage(
+      frame,
+      Math.round(centerX - halfW),
+      Math.round(centerY - halfH),
+      size.w,
+      size.h
+    );
   }
   ctx.restore();
 }
@@ -642,4 +708,3 @@ async function loadAvatarAtlas(avatarsObj) {
     avatarAtlas.set(name, { frames: { north, south, east } });
   }
 }
-
