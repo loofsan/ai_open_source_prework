@@ -6,14 +6,15 @@ const mapParam = params.get('map');
 const avatarParam = params.get('avatar');
 const speedParam = Number(params.get('speed'));
 
+
 /** @type {HTMLCanvasElement} */
-const canvas = document.getElementById('world-canvas');
+const canvas = document.getElementById("world-canvas");
 /** @type {CanvasRenderingContext2D} */
-const ctx = canvas.getContext('2d', { alpha: false });
+const ctx = canvas.getContext("2d", { alpha: false });
 ctx.imageSmoothingEnabled = false;
 
 function getDevicePixelRatio() {
-  const override = Number(params.get('dpr'));
+  const override = Number(params.get("dpr"));
   if (!Number.isNaN(override) && override > 0) return override;
   return Math.max(1, window.devicePixelRatio || 1);
 }
@@ -23,8 +24,8 @@ function setCanvasSizeToViewport() {
   const cssHeight = window.innerHeight;
   const dpr = getDevicePixelRatio();
 
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
+  canvas.style.width = cssWidth + "px";
+  canvas.style.height = cssHeight + "px";
 
   const targetWidth = Math.floor(cssWidth * dpr);
   const targetHeight = Math.floor(cssHeight * dpr);
@@ -48,7 +49,7 @@ const world = {
 
 const selfPlayer = {
   id: null,
-  name: 'Lynn',
+  name: "Lynn",
   x: 0,
   y: 0,
   // Avatar rendering (server-driven)
@@ -176,11 +177,11 @@ function directionFromKey(key) {
 
 async function loadImage(urlOrBlob) {
   if (urlOrBlob == null) return null;
-  if (typeof urlOrBlob === 'string') {
+  if (typeof urlOrBlob === "string") {
     if (imageCache.has(urlOrBlob)) return imageCache.get(urlOrBlob);
     const img = new Image();
-    img.decoding = 'async';
-    img.crossOrigin = 'anonymous';
+    img.decoding = "async";
+    img.crossOrigin = "anonymous";
     const p = new Promise((resolve, reject) => {
       img.onload = () => resolve(img);
       img.onerror = reject;
@@ -200,11 +201,11 @@ async function loadMap() {
   const candidates = mapParam
     ? [mapParam]
     : [
-        'assets/world.png',
-        'assets/world-map.png',
-        'assets/map.png',
-        'world.png',
-        'public/assets/world.png',
+        "assets/world.jpg",
+        "assets/world-map.jpg",
+        "assets/map.jpg",
+        "world.jpg",
+        "public/assets/world.jpg",
       ];
   for (const src of candidates) {
     try {
@@ -217,7 +218,9 @@ async function loadMap() {
       }
     } catch (_) {}
   }
-  console.warn('No world map image found. Provide ?map=URL or place one at assets/world.png');
+  console.warn(
+    "No world map image found. Provide ?map=URL or place one at assets/world.png"
+  );
   return false;
 }
 
@@ -229,10 +232,11 @@ function connectAndJoin() {
     try {
       socket = new WebSocket(serverUrl);
     } catch (e) {
-      console.warn('WebSocket unavailable or URL invalid:', e);
+      console.warn("WebSocket unavailable or URL invalid:", e);
       resolve(false);
       return;
     }
+
 
     socket.binaryType = 'arraybuffer';
     let settled = false;
@@ -240,7 +244,6 @@ function connectAndJoin() {
       const joinMsg = {
         action: 'join_game',
         username: selfPlayer.name,
-        // Optional avatar upload omitted for now
       };
       socket.send(JSON.stringify(joinMsg));
     };
@@ -317,7 +320,7 @@ function connectAndJoin() {
           console.warn('Server error for action', msg.action, ':', msg.error);
         }
       } catch (e) {
-        console.warn('Message handling error:', e);
+        console.warn("Message handling error:", e);
       }
     };
 
@@ -350,20 +353,20 @@ function prepareNameLabel() {
   const paddingY = Math.floor(3 * dpr);
   const fontPx = Math.floor(12 * dpr);
 
-  const temp = document.createElement('canvas');
-  const tctx = temp.getContext('2d');
+  const temp = document.createElement("canvas");
+  const tctx = temp.getContext("2d");
   tctx.font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
   const metrics = tctx.measureText(selfPlayer.name);
   const textWidth = Math.ceil(metrics.width);
   const textHeight = Math.ceil(fontPx * 1.4);
   temp.width = textWidth + paddingX * 2;
   temp.height = textHeight + paddingY * 2;
-  const tctx2 = temp.getContext('2d');
+  const tctx2 = temp.getContext("2d");
   tctx2.font = tctx.font;
-  tctx2.textBaseline = 'top';
-  tctx2.fillStyle = 'rgba(0,0,0,0.6)';
+  tctx2.textBaseline = "top";
+  tctx2.fillStyle = "rgba(0,0,0,0.6)";
   tctx2.fillRect(0, 0, temp.width, temp.height);
-  tctx2.fillStyle = '#fff';
+  tctx2.fillStyle = "#fff";
   tctx2.fillText(selfPlayer.name, paddingX, paddingY);
 
   labelCanvas = temp;
@@ -553,6 +556,7 @@ function loop() {
   window.addEventListener('keydown', handleKeyDown, { passive: false });
   window.addEventListener('keyup', handleKeyUp, { passive: false });
   window.addEventListener('blur', () => pressedKeys.clear());
+
   // Refresh labels for other players on DPR change
   window.addEventListener('resize', () => { for (const op of players.values()) prepareLabelForPlayer(op); });
   window.addEventListener('orientationchange', () => { for (const op of players.values()) prepareLabelForPlayer(op); });
