@@ -60,6 +60,80 @@ const camera = { x: 0, y: 0 };
 
 // Assets cache by URL
 const imageCache = new Map();
+const players = new Map(); // other players by id
+
+function ensureOtherPlayer(id) {
+  if (!players.has(id)) {
+    players.set(id, {
+      id,
+      name: 'Player',
+      x: 0,
+      y: 0,
+      avatarImage: null,
+      avatarWidth: 48,
+      avatarHeight: 48,
+      labelCanvas: null,
+      labelWidth: 0,
+      labelHeight: 0,
+    });
+  }
+  return players.get(id);
+}
+
+async function setPlayerAvatarFromDescriptor(player, avatarDesc) {
+  if (avatarDesc?.url) {
+    player.avatarImage = await loadImage(avatarDesc.url);
+  }
+  if (avatarDesc?.width && avatarDesc?.height) {
+    player.avatarWidth = avatarDesc.width;
+    player.avatarHeight = avatarDesc.height;
+  } else if (player.avatarImage) {
+    const w = player.avatarImage.naturalWidth || player.avatarImage.width;
+    const h = player.avatarImage.naturalHeight || player.avatarImage.height;
+    const maxSide = 48;
+    if (w >= h) {
+      player.avatarWidth = Math.min(maxSide, w);
+      player.avatarHeight = Math.round((h / w) * player.avatarWidth);
+    } else {
+      player.avatarHeight = Math.min(maxSide, h);
+      player.avatarWidth = Math.round((w / h) * player.avatarHeight);
+    }
+  }
+}
+
+function prepareLabelForPlayer(player) {
+  const dpr = getDevicePixelRatio();
+  const paddingX = Math.floor(6 * dpr);
+  const paddingY = Math.floor(3 * dpr);
+  const fontPx = Math.floor(12 * dpr);
+  const temp = document.createElement('canvas');
+  const tctx = temp.getContext('2d');
+  tctx.font = `${fontPx}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+  const metrics = tctx.measureText(player.name || 'Player');
+  const textWidth = Math.ceil(metrics.width);
+  const textHeight = Math.ceil(fontPx * 1.4);
+  temp.width = textWidth + paddingX * 2;
+  temp.height = textHeight + paddingY * 2;
+  const tctx2 = temp.getContext('2d');
+  tctx2.font = tctx.font;
+  tctx2.textBaseline = 'top';
+  tctx2.fillStyle = 'rgba(0,0,0,0.6)';
+  tctx2.fillRect(0, 0, temp.width, temp.height);
+  tctx2.fillStyle = '#fff';
+  tctx2.fillText(player.name || 'Player', paddingX, paddingY);
+  player.labelCanvas = temp;
+  player.labelWidth = temp.width;
+  player.labelHeight = temp.height;
+}
+
+async function upsertOtherPlayerFromServer(p) {
+  const op = ensureOtherPlayer(p.playerId);
+  if (typeof p.x === 'number') op.x = p.x;
+  if (typeof p.y === 'number') op.y = p.y;
+  if (typeof p.name === 'string') op.name = p.name;
+  if (p.avatar) await setPlayerAvatarFromDescriptor(op, p.avatar);
+  prepareLabelForPlayer(op);
+}
 
 // Input state
 const pressedKeys = new Set();
@@ -203,6 +277,49 @@ function connectAndJoin() {
           // After we have self info, pre-render label and start loop
           prepareNameLabel();
           if (!settled) { settled = true; resolve(true); }
+
+          // Optional initial roster of other players
+          if (Array.isArray(msg.players)) {
+            for (const p of msg.players) {
+              if (!p || p.playerId === selfPlayer.id) continue;
+              await upsertOtherPlayerFromServer(p);
+            }
+          }
+        } else if (msg.type === 'players' || msg.type === 'state') {
+          // Snapshot of players
+          if (Array.isArray(msg.players)) {
+            // Rebuild map but keep self out
+            const seen = new Set();
+            for (const p of msg.players) {
+              if (!p || p.playerId === selfPlayer.id) continue;
+              await upsertOtherPlayerFromServer(p);
+              seen.add(p.playerId);
+            }
+            // Remove any not present
+            for (const id of players.keys()) {
+              if (!seen.has(id)) players.delete(id);
+            }
+          }
+        } else if (msg.type === 'player-joined') {
+          if (msg.player && msg.player.playerId !== selfPlayer.id) {
+            await upsertOtherPlayerFromServer(msg.player);
+          }
+        } else if (msg.type === 'player-left') {
+          if (msg.playerId) players.delete(msg.playerId);
+        } else if (msg.type === 'player-update' || msg.type === 'move' || msg.type === 'position') {
+          const id = msg.playerId;
+          if (id && id !== selfPlayer.id) {
+            const op = ensureOtherPlayer(id);
+            if (typeof msg.x === 'number') op.x = msg.x;
+            if (typeof msg.y === 'number') op.y = msg.y;
+            if (msg.avatar && msg.avatar.url) {
+              await setPlayerAvatarFromDescriptor(op, msg.avatar);
+            }
+            if (typeof msg.name === 'string' && msg.name !== op.name) {
+              op.name = msg.name;
+              prepareLabelForPlayer(op);
+            }
+          }
         }
       } catch (e) {
         console.warn('Message handling error:', e);
@@ -350,6 +467,31 @@ function draw() {
     const dy = Math.round(screenY - offsetY - labelHeight);
     ctx.drawImage(labelCanvas, dx, dy);
   }
+
+  // Render other players with simple culling
+  if (players.size > 0) {
+    for (const op of players.values()) {
+      const sx = Math.round(op.x - camera.x);
+      const sy = Math.round(op.y - camera.y);
+      // cull if completely off-screen
+      const halfW = Math.floor(op.avatarWidth / 2);
+      const halfH = Math.floor(op.avatarHeight / 2);
+      if (sx + halfW < 0 || sy + halfH < 0 || sx - halfW > viewW || sy - halfH > viewH) {
+        continue;
+      }
+
+      if (op.avatarImage) {
+        ctx.drawImage(op.avatarImage, Math.round(sx - halfW), Math.round(sy - halfH), op.avatarWidth, op.avatarHeight);
+      }
+      if (op.labelCanvas) {
+        const dpr = getDevicePixelRatio();
+        const offsetY = Math.floor(op.avatarHeight / 2) + Math.floor(8 * dpr);
+        const dx = Math.round(sx - op.labelWidth / 2);
+        const dy = Math.round(sy - offsetY - op.labelHeight);
+        ctx.drawImage(op.labelCanvas, dx, dy);
+      }
+    }
+  }
 }
 
 function loop() {
@@ -422,6 +564,9 @@ function loop() {
   window.addEventListener('keydown', handleKeyDown, { passive: false });
   window.addEventListener('keyup', handleKeyUp, { passive: false });
   window.addEventListener('blur', () => pressedKeys.clear());
+  // Refresh labels for other players on DPR change
+  window.addEventListener('resize', () => { for (const op of players.values()) prepareLabelForPlayer(op); });
+  window.addEventListener('orientationchange', () => { for (const op of players.values()) prepareLabelForPlayer(op); });
 
   loop();
 })();
