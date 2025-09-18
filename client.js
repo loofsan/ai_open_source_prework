@@ -1,7 +1,7 @@
 // Minimal client bootstrapping: canvas sizing, map loading, render tick.
 
 const params = new URLSearchParams(window.location.search);
-const serverUrl = params.get("server") || "";
+const serverUrl = "wss://codepath-mmorg.onrender.com";
 const mapParam = params.get("map");
 const avatarParam = params.get("avatar");
 const speedParam = Number(params.get("speed"));
