@@ -71,6 +71,44 @@ const imageCache = new Map();
 const avatarAtlas = new Map();
 const players = new Map(); // other players by id
 
+const panelCountEl = document.getElementById("player-count");
+const panelListEl = document.getElementById("player-list");
+
+function updatePlayerPanel() {
+  if (!panelCountEl || !panelListEl) return;
+  const entries = [];
+
+  if (selfPlayer) {
+    entries.push({
+      id: selfPlayer.id || "self",
+      name: selfPlayer.name || "You",
+      isSelf: true,
+    });
+  }
+
+  for (const op of players.values()) {
+    entries.push({ id: op.id, name: op.name || "Player", isSelf: false });
+  }
+
+  const sorted = [
+    entries[0],
+    ...entries.slice(1).sort((a, b) => a.name.localeCompare(b.name)),
+  ];
+  panelCountEl.textContent = String(sorted.length);
+
+  panelListEl.innerHTML = "";
+  for (const e of sorted) {
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    li.appendChild(dot);
+    const label = document.createElement("span");
+    label.textContent = e.isSelf ? `${e.name} (You)` : e.name;
+    li.appendChild(label);
+    panelListEl.appendChild(li);
+  }
+}
+
 function ensureOtherPlayer(id) {
   if (!players.has(id)) {
     players.set(id, {
@@ -316,6 +354,7 @@ function connectAndJoin() {
               }
             }
           }
+          updatePlayerPanel();
           prepareNameLabel();
           if (!settled) {
             settled = true;
@@ -328,6 +367,7 @@ function connectAndJoin() {
           if (msg.player) {
             await upsertOtherPlayerFromServer(msg.player);
           }
+          updatePlayerPanel();
         } else if (msg.action === "players_moved") {
           if (msg.players && typeof msg.players === "object") {
             for (const [pid, p] of Object.entries(msg.players)) {
@@ -351,10 +391,14 @@ function connectAndJoin() {
                 if (typeof p.username === "string" && p.username !== op.name) {
                   op.name = p.username;
                   prepareLabelForPlayer(op);
+                  updatePlayerPanel();
                 }
               }
             }
           }
+        } else if (msg.action === "player.left") {
+          if (msg.playerId) players.delete(msg.playerId);
+          updatePlayerPanel();
         }
       } catch (e) {
         console.warn("Message handling error:", e);
@@ -635,11 +679,14 @@ function loop() {
 
   // Prepare label (depends on DPR); also refresh on resize for crispness
   prepareNameLabel();
+  updatePlayerPanel();
 
   window.addEventListener("resize", setCanvasSizeToViewport);
   window.addEventListener("orientationchange", setCanvasSizeToViewport);
   window.addEventListener("resize", () => prepareNameLabel());
   window.addEventListener("orientationchange", () => prepareNameLabel());
+  window.addEventListener("resize", updatePlayerPanel);
+  window.addEventListener("orientationChange", updatePlayerPanel);
   window.addEventListener("keydown", handleKeyDown, { passive: false });
   window.addEventListener("keyup", handleKeyUp, { passive: false });
   window.addEventListener("blur", () => pressedKeys.clear());
